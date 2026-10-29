@@ -1,0 +1,31 @@
+{
+  "algorithm": "Random Forest",
+  "trees": 200,
+  "records": 5141,
+  "cv_accuracy": 91.4,
+  "test_accuracy": 91.9,
+  "baseline_accuracy": 85.9,
+  "feature_importance": {
+    "Gender": 2.2,
+    "Math_Marks": 33.0,
+    "Science_Marks": 30.6,
+    "Arts_Marks": 20.8,
+    "Study_Hours_Per_Week": 13.3
+  },
+  "averages": {
+    "Academic": {
+      "Math_Marks": 51.1,
+      "Science_Marks": 54.6,
+      "Arts_Marks": 70.5,
+      "Study_Hours_Per_Week": 22.0,
+      "count": 767
+    },
+    "Technical": {
+      "Math_Marks": 67.6,
+      "Science_Marks": 69.8,
+      "Arts_Marks": 60.4,
+      "Study_Hours_Per_Week": 22.2,
+      "count": 4374
+    }
+  }
+}

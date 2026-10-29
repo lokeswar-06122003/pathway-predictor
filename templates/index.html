@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pathway: find the stream that fits you</title>
+  <meta name="description" content="Enter your maths, science and arts marks and weekly study hours to see whether a Technical or Academic stream suits you, based on 5,141 past students.">
+  <meta name="theme-color" content="#16204A">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="preload" href="{{ url_for('static', filename='fonts/familjen-grotesk-latin-700-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="{{ url_for('static', filename='fonts/familjen-grotesk-latin-400-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script>document.documentElement.classList.add("js");</script>
+</head>
+<body>
+  <a class="skip" href="#predictor">Skip to the predictor</a>
+
+  <header class="site-header">
+    <div class="wrap header-row">
+      <a class="brand" href="/" aria-label="Pathway home">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M16 29V17" />
+          <path class="tech" d="M16 17C16 11 9 10 8 4" />
+          <path class="acad" d="M16 17C16 11 23 10 24 4" />
+          <circle cx="16" cy="29" r="2.2" />
+        </svg>
+        <span> Student Learning Pathway</span>
+      </a>
+      <nav class="site-nav" aria-label="Sections">
+        <a href="#compare">Your marks</a>
+        <a href="#how">How it works</a>
+        <a href="#model">The model</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
+          <h1>Find the stream that fits how you learn.</h1>
+          <p class="lede">Move the sliders to match your marks. Pathway compares you with {{ "{:,}".format(info.records) }} students who have already chosen, and shows which stream people like you went on to: Technical or Academic.</p>
+          <p class="hero-aside">Right {{ info.test_accuracy|round|int }} times out of 100 on students it had never seen. <a href="#model">How we measured that</a></p>
+        </div>
+
+        <form id="predictor" class="predictor" action="/predict" method="post" novalidate>
+          <h2 class="visually-hidden">Predictor</h2>
+
+          <fieldset class="gender">
+            <legend>Gender</legend>
+            <div class="segmented">
+              {% for g in ["Female", "Male"] %}
+              <label>
+                <input type="radio" name="gender" value="{{ g }}" {% if values.gender == g %}checked{% endif %}>
+                <span>{{ g }}</span>
+              </label>
+              {% endfor %}
+            </div>
+          </fieldset>
+
+          {% for name, (label, low, high) in fields.items() %}
+          <div class="field" data-field="{{ name }}">
+            <div class="field-head">
+              <label for="{{ name }}-range">{{ label }}</label>
+              <input class="num" type="number" id="{{ name }}-num" aria-label="{{ label }}, type a value"
+                     min="{{ low }}" max="{{ high }}" step="1" value="{{ values[name] }}" inputmode="numeric">
+            </div>
+            <input class="range" type="range" id="{{ name }}-range" name="{{ name }}"
+                   min="{{ low }}" max="{{ high }}" step="1" value="{{ values[name] }}">
+            <div class="scale" aria-hidden="true"><span>{{ low }}</span><span>{{ high }}</span></div>
+          </div>
+          {% endfor %}
+
+          <button class="submit" type="submit">Show my pathway</button>
+
+          <div class="result" aria-live="polite" data-stream="{{ result.stream if result else '' }}">
+            {% if error %}
+              <p class="error" role="alert">{{ error }}</p>
+            {% endif %}
+            <p class="result-label">Students with marks like yours chose</p>
+            <p class="result-stream" id="result-stream">{{ result.stream if result else "—" }}</p>
+            <div class="split" role="img" id="split"
+                 aria-label="{% if result %}Technical {{ result.probabilities.Technical }} percent, Academic {{ result.probabilities.Academic }} percent{% endif %}">
+              <span class="split-tech" style="flex-basis: {{ result.probabilities.Technical if result else 50 }}%"></span>
+              <span class="split-acad" style="flex-basis: {{ result.probabilities.Academic if result else 50 }}%"></span>
+            </div>
+            <div class="split-legend">
+              <span class="tech-key">Technical <b id="p-tech">{{ result.probabilities.Technical|round|int if result else "–" }}%</b></span>
+              <span class="acad-key">Academic <b id="p-acad">{{ result.probabilities.Academic|round|int if result else "–" }}%</b></span>
+            </div>
+            <p class="reason" id="reason"></p>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section id="compare" class="band">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>How your marks compare</h2>
+          <p>Each row places you next to the average student in each stream. The closer your dot sits to a colour, the more that subject pulls you towards it.</p>
+        </div>
+        <figure class="compare">
+          <div id="compare-chart" class="compare-chart"></div>
+          <figcaption class="compare-key">
+            <span class="key you">You</span>
+            <span class="key tech">Average Technical student ({{ "{:,}".format(info.averages.Technical.count) }})</span>
+            <span class="key acad">Average Academic student ({{ "{:,}".format(info.averages.Academic.count) }})</span>
+          </figcaption>
+          <noscript><p>Turn on JavaScript to see the comparison chart.</p></noscript>
+        </figure>
+      </div>
+    </section>
+
+    <section id="how" class="band band-plain">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>How it works</h2>
+        </div>
+        <ol class="steps">
+          <li>
+            <h3>You enter four numbers</h3>
+            <p>Your maths, science and arts marks out of 100, and roughly how many hours you study in a week.</p>
+          </li>
+          <li>
+            <h3>{{ info.trees }} decision trees vote</h3>
+            <p>Each tree learned from past students which combinations of marks led to which stream. Every tree casts one vote for you.</p>
+          </li>
+          <li>
+            <h3>You see the split, not just a label</h3>
+            <p>The bar shows how the votes divided. A 95 to 5 split is a clear lean; a 55 to 45 split means both streams are realistic for you.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="model" class="band">
+      <div class="wrap model-grid">
+        <div class="section-head">
+          <h2>The model, honestly</h2>
+          <p>Pathway is a {{ info.algorithm }} classifier trained on {{ "{:,}".format(info.records) }} student records. It is a starting point for a conversation with a teacher or parent, not a decision.</p>
+          <dl class="model-stats">
+            <div><dt>Right on students it never saw</dt><dd>{{ info.test_accuracy }}%</dd></div>
+            <div><dt>Average across 5 test rounds</dt><dd>{{ info.cv_accuracy }}%</dd></div>
+            <div><dt>If it always guessed Technical</dt><dd>{{ info.baseline_accuracy }}%</dd></div>
+          </dl>
+          <p class="note">Most students in the data chose Technical, so a lazy model could look accurate by always saying Technical. Pathway is trained to give Academic students equal weight, which is why the last number matters.</p>
+        </div>
+
+        <div class="importance">
+          <h3>What the model pays attention to</h3>
+          <ul>
+            {% set labels = {"Math_Marks": "Maths", "Science_Marks": "Science", "Arts_Marks": "Arts", "Study_Hours_Per_Week": "Study hours", "Gender": "Gender"} %}
+            {% for feat, val in info.feature_importance|dictsort(by="value", reverse=true) %}
+            <li>
+              <span class="imp-name">{{ labels[feat] }}</span>
+              <span class="imp-bar"><span style="width: {{ val / 35 * 100 }}%"></span></span>
+              <span class="imp-val">{{ val|round|int }}%</span>
+            </li>
+            {% endfor %}
+          </ul>
+          <p class="note">Gender barely moves the result. Your marks do almost all the work.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-row">
+      <p>Pathway: a student learning pathway predictor built with Flask and scikit-learn.</p>
+      <p>Made by P Lokeswar, MCA</p>
+    </div>
+  </footer>
+
+  <script id="model-info" type="application/json">{{ info|tojson }}</script>
+  <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+</body>
+</html>
